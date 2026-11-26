@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "machine_brand": "holly",
+  "site": "ZJ",
+  "factory": "ZJ",
+  "line_id": "Z36",
+  "paths": {
+    "input": "D:/Project/AMR/Result/TEMP/AI_FED2ARS_backup/Z36",
+    "output": "D:/Project/AMR/Result/TEMP/output_common_format/Z36",
+    "csv_backup": "D:/Project/AMR/Result/TEMP/uploaded_csv_backup/Z36",
+    "xml_archive": "D:/Project/AMR/Result/TEMP/normalized_xml_archive/Z36",
+    "error": "D:/Project/AMR/Result/TEMP/Normalization_Failed/Z36",
+    "state": "../.runtime/zj_z36_holly",
+    "logs": "../logs/zj_z36_holly"
+  },
+  "runtime": {
+    "poll_interval_seconds": 10,
+    "settle_seconds": 10,
+    "retry_interval_seconds": 30,
+    "max_parse_attempts": 3,
+    "batch_size": 500,
+    "batch_pause_seconds": 2,
+    "exclude_directory_names": ["upload_files"],
+    "ok_board_statuses": ["PASS", "OK"]
+  }
+}

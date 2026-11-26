@@ -1,0 +1,2 @@
+Product_Name,Site,Line_ID,Factory,Machine,Time,BT,Imulti_col,Imulti_row,Carrier_SN,BoardSN
+MODEL_A,ZJ,Z36,ZJ,AOI,2026/11/26 12:30:00,T,1,-1,CARRIER_1,BOARD_OK

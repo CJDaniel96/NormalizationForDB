@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "machine_brand": "holly",
+  "site": "ZJ",
+  "factory": "ZJ",
+  "line_id": "Z36",
+  "paths": {
+    "input": "../data/input",
+    "output": "../data/output",
+    "csv_backup": "../data/csv_backup",
+    "xml_archive": "../data/xml_archive",
+    "error": "../data/error",
+    "state": "../.runtime/local",
+    "logs": "../logs/local"
+  },
+  "runtime": {
+    "poll_interval_seconds": 10,
+    "settle_seconds": 10,
+    "retry_interval_seconds": 30,
+    "max_parse_attempts": 3,
+    "batch_size": 500,
+    "batch_pause_seconds": 2,
+    "exclude_directory_names": ["upload_files"],
+    "ok_board_statuses": ["PASS", "OK"]
+  }
+}

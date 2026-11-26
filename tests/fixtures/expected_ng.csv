@@ -1,0 +1,3 @@
+Product_Name,Site,Line_ID,StationId,Factory,Machine,Time,BT,Imulti_col,Imulti_row,Carrier_SN,BoardSN,Image_Path,Image_name,Part_Number,CompName,Window_ID,AOI_Defect_Code,OP_Defect_Code,AI_Result,Defect_Center_X,Defect_Center_Y,Defect_Region_X,Defect_Region_Y,Angle,CycleTime,TotalComp,PackageType,Comp_type,Group_type,is_Cover
+MODEL_A,ZJ,Z36,S1,ZJ,AOI,2026/11/26 12:30:00,T,2,-1,CARRIER_1,BOARD_NG,2026-11-26/20261126123100/20261126123100_CARRIER_1_T@R1_3_top.jpg,R1_3_top.jpg,PART_1,R1,-1,D01,No Check,0,1,2,3,4,0,10,10,0402,R,resistor,1
+MODEL_A,ZJ,Z36,S1,ZJ,AOI,2026/11/26 12:30:00,T,2,-1,CARRIER_1,BOARD_NG,2026-11-26/20261126123100/20261126123100_CARRIER_1_T@R1_4_top.jpg,R1_4_top.jpg,PART_1,R1,-1,D01,No Check,0,1,2,3,4,0,10,10,0402,R,resistor,1

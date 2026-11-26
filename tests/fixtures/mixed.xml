@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Result>
+  <Panel cModel="MODEL_A" StationId="S1" fdate="2026/11/26 12:30:00" CycleTime="10" Machine="AOI" Carrier="CARRIER_1">
+    <Board imulti="1" TopBtm="T" BoardSN="BOARD_OK" Status="PASS" TotalComp="10" />
+    <Board imulti="2" TopBtm="T" BoardSN="BOARD_NG" Status="FAIL" TotalComp="10">
+      <Component CompName="R1" TB="T" Type="R" PackageType="0402" Status="FAIL" MachineDefect="D01" ConfirmDefect="D02" AI_result="NG" PartNo="PART_1" Group_type="resistor" is_covered="1">
+        <CompImage>
+          <Image PicPath1="Z:\exports\20261126\model\20261126123100_SN_T@R1_3_top.jpg" PicPath2="//server/share/deep/arbitrary/20261126123100_SN_T@R1_4_top.jpg" X1="1" Y1="2" X2="3" Y2="4" Camera="1" Angle="0" />
+        </CompImage>
+      </Component>
+    </Board>
+  </Panel>
+</Result>
