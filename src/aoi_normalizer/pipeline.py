@@ -129,15 +129,16 @@ class Pipeline:
         self, path: Path, relative: Path, content: bytes, observed: tuple, record: dict
     ) -> str:
         phase = record["phase"]
-        if phase in {"quarantining", "quarantined"}:
-            return self._quarantine(path, relative, content, observed, record)
         if phase not in {"outputs_written", "completed"}:
             try:
                 panels = parse_holly_xml(content, self.config)
             except DataError as error:
                 ensure_unchanged(path, observed, record["sha256"])
-                record["parse_attempts"] += 1
                 record["last_error"] = str(error)
+                if phase in {"quarantining", "quarantined"}:
+                    self.store.save(record)
+                    return self._quarantine(path, relative, content, observed, record)
+                record["parse_attempts"] += 1
                 record["retry_after"] = (
                     self.wall_clock() + self.config.runtime.retry_interval_seconds
                 )
@@ -154,6 +155,9 @@ class Pipeline:
                     error,
                 )
                 return "failed"
+            # Revalidate previously rejected XML with the current parser, including
+            # quarantined sources deliberately returned to input after a parser fix.
+            record["phase"] = "processing"
             ensure_unchanged(path, observed, record["sha256"])
             for artifact in build_artifacts(panels, self.config, record["job_id"]):
                 if artifact.key in record["published"]:

@@ -6,6 +6,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from aoi_normalizer import pipeline as pipeline_module
+from aoi_normalizer.models import DataError
 from aoi_normalizer.pipeline import Pipeline
 
 
@@ -311,3 +312,58 @@ def test_relaxing_attributes_retries_previous_failure_and_archives_xml(
         rows = list(csv.DictReader(stream))
     assert len(rows) == 2
     assert all(row["PackageType"] == "" for row in rows)
+
+
+@pytest.mark.parametrize("previous_phase", ["quarantining", "quarantined"])
+def test_parser_fix_reprocesses_previously_rejected_xml(
+    config, clock, put_xml, xml_factory, monkeypatch, previous_phase
+):
+    config = replace(config, runtime=replace(config.runtime, max_parse_attempts=1))
+    root = ET.fromstring(xml_factory(status="FAIL"))
+    image = root.find("Panel/Board/Component/CompImage/Image")
+    image.set("PicPath1", "20261126033959~T~_J1GF15_6_top.jpg")
+    image.set("PicPath2", "")
+    content = ET.tostring(root)
+    relative = "machine/batch/tilde.xml"
+    source = put_xml(relative, content)
+    current_parser = pipeline_module.parse_holly_xml
+
+    def old_parser(content, config):
+        raise DataError("Invalid image filename: 20261126033959~T~_J1GF15_6_top.jpg")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(pipeline_module, "parse_holly_xml", old_parser)
+        if previous_phase == "quarantining":
+
+            def archive_unavailable(*args):
+                raise OSError("error directory unavailable")
+
+            patch.setattr(pipeline_module, "archive_xml", archive_unavailable)
+            assert make_pipeline(config, clock).poll().failed == 1
+        else:
+            assert make_pipeline(config, clock).poll().quarantined == 1
+            assert not source.exists()
+            source.write_bytes((config.paths.error / relative).read_bytes())
+
+    assert pipeline_module.parse_holly_xml is current_parser
+    assert journals(config)[0]["phase"] == previous_phase
+    clock.advance(3)
+    assert make_pipeline(config, clock).poll().completed == 1
+    assert not source.exists()
+    assert (config.paths.xml_archive / relative).read_bytes() == content
+    with next(config.paths.output.rglob("*_NG.csv")).open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 1
+    assert rows[0]["Image_name"] == "J1GF15_6_top.jpg"
+    assert journals(config)[0]["phase"] == "completed"
+
+
+def test_returned_invalid_xml_is_quarantined_again(config, clock, put_xml):
+    config = replace(config, runtime=replace(config.runtime, max_parse_attempts=1))
+    source = put_xml(content=b"<broken")
+    assert make_pipeline(config, clock).poll().quarantined == 1
+    source.write_bytes(b"<broken")
+    assert make_pipeline(config, clock).poll().quarantined == 1
+    assert not source.exists()
+    assert not config.paths.output.exists()
+    assert journals(config)[0]["parse_attempts"] == 1

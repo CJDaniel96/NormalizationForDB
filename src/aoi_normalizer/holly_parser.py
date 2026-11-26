@@ -1,5 +1,6 @@
 """Parse Holly XML without filesystem side effects or cross-file state."""
 
+import re
 from datetime import datetime
 from pathlib import PureWindowsPath
 from xml.etree import ElementTree as ET
@@ -9,6 +10,9 @@ from .models import DataError, PanelResult, Record
 
 TIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 AI_RESULTS = {"NG": "0", "OK": "1", "0": "0", "1": "1"}
+IMAGE_FILENAME_PATTERN = re.compile(
+    r"(?P<timestamp>[0-9]{14})(?:_[^@]*@|~[^~]+~_)(?P<image_name>.+)"
+)
 
 
 def _required(element: ET.Element, name: str) -> str:
@@ -28,16 +32,18 @@ def _attribute(element: ET.Element, name: str, *, strict: bool) -> str:
 def _image_path(raw: str, carrier: str, side: str) -> tuple[str, str]:
     # PureWindowsPath handles both slash styles, including UNC paths, on every OS.
     filename = PureWindowsPath(raw).name
-    timestamp = filename.split("_", 1)[0]
-    _, separator, image_name = filename.partition("@")
+    match = IMAGE_FILENAME_PATTERN.fullmatch(filename)
+    if match is None:
+        raise DataError(
+            f"Unsupported image filename format: {filename}; "
+            "expected timestamp_...@image_name or timestamp~side~_image_name"
+        )
+    timestamp = match["timestamp"]
+    image_name = match["image_name"]
     try:
-        if len(timestamp) != 14 or not timestamp.isascii() or not timestamp.isdigit():
-            raise ValueError("expected 14-digit image timestamp")
         captured = datetime.strptime(timestamp, "%Y%m%d%H%M%S")
     except ValueError as error:
         raise DataError(f"Invalid image filename: {filename}") from error
-    if not separator or not image_name:
-        raise DataError(f"Image filename must contain @ and an image name: {filename}")
     relative = f"{captured:%Y-%m-%d}/{timestamp}/{timestamp}_{carrier}_{side}@{image_name}"
     return relative, image_name
 

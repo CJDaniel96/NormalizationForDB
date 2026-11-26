@@ -233,3 +233,69 @@ def test_time_and_classification_remain_required_in_relaxed_mode(
         node.set(attribute, "")
     with pytest.raises(DataError, match=attribute):
         parse_holly_xml(ET.tostring(root), config)
+
+
+@pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "20261126033959~T~_J1GF15_6_top.jpg",
+        r"Z:\exports\arbitrary\depth\20261126033959~T~_J1GF15_6_top.jpg",
+        "//server/share/arbitrary/depth/20261126033959~T~_J1GF15_6_top.jpg",
+    ],
+)
+def test_tilde_image_filename_is_normalized_in_both_validation_modes(
+    config, xml_factory, strict, raw
+):
+    config = replace(config, runtime=replace(config.runtime, strict_xml_attributes=strict))
+    root = ET.fromstring(xml_factory(status="FAIL"))
+    image = root.find("Panel/Board/Component/CompImage/Image")
+    image.set("PicPath1", raw)
+    image.set("PicPath2", "")
+    panels = parse_holly_xml(ET.tostring(root), config)
+    artifact = next(
+        artifact
+        for artifact in build_artifacts(panels, config, "f" * 64)
+        if artifact.path.stem.endswith("_NG")
+    )
+    rows = list(csv.DictReader(io.StringIO(artifact.content.decode("utf-8"))))
+    assert len(rows) == 1
+    assert rows[0]["Image_name"] == "J1GF15_6_top.jpg"
+    assert rows[0]["Image_Path"] == (
+        "2026-11-26/20261126033959/20261126033959_CARRIER_1_T@J1GF15_6_top.jpg"
+    )
+
+
+def test_legacy_and_tilde_images_can_coexist_in_one_xml(config, xml_factory):
+    root = ET.fromstring(xml_factory(status="FAIL"))
+    root.find("Panel/Board/Component/CompImage/Image").set(
+        "PicPath2", "20261126033959~T~_J1GF15_6_top.jpg"
+    )
+    records = parse_holly_xml(ET.tostring(root), config)[0].ng_records
+    assert [row["Image_name"] for row in records] == ["R1_3_top.jpg", "J1GF15_6_top.jpg"]
+    assert records[0]["Image_Path"] == (
+        "2026-11-26/20261126123100/20261126123100_CARRIER_1_T@R1_3_top.jpg"
+    )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "2026112603395~T~_J1GF15_6_top.jpg",
+        "202611260339590~T~_J1GF15_6_top.jpg",
+        "20261326033959~T~_J1GF15_6_top.jpg",
+        "20260230033959~T~_J1GF15_6_top.jpg",
+        "20261126033959~T~_",
+        "20261126033959~~_J1GF15_6_top.jpg",
+        "20261126033959~T~J1GF15_6_top.jpg",
+        "20261126033959_T_J1GF15_6_top.jpg",
+        "20261126033959_SN_T@",
+    ],
+)
+def test_malformed_image_filenames_are_still_rejected(config, xml_factory, filename):
+    root = ET.fromstring(xml_factory(status="FAIL"))
+    image = root.find("Panel/Board/Component/CompImage/Image")
+    image.set("PicPath1", filename)
+    image.set("PicPath2", "")
+    with pytest.raises(DataError, match="image filename"):
+        parse_holly_xml(ET.tostring(root), config)
