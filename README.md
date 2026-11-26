@@ -53,6 +53,7 @@ uv run --locked ruff format --check .
 | runtime.batch_size / batch_pause_seconds | 每輪最多嘗試處理數量／批次滿載後休息時間，預設 500／2 秒 |
 | runtime.exclude_directory_names | 排除的子資料夾名稱，不分大小寫；預設排除舊版 `upload_files` |
 | runtime.ok_board_statuses | 明確允許視為 OK 的 Board 狀態，預設 PASS、OK；不分大小寫 |
+| runtime.strict_xml_attributes | XML 資料屬性嚴格驗證，預設 false；允許缺少／空白的一般屬性，CSV 對應欄位留空。設 true 恢復嚴格檢查 |
 
 正式、備份、封存、錯誤、狀態及日誌目錄不可互相重疊，也不可等於或包含 input。它們可以位於 input 內，此時掃描會排除整個受管理子目錄；建議部署在 input 外。
 
@@ -78,9 +79,13 @@ CSV 在各目的目錄先寫暫存檔再改為正式檔名。每份工作以來�
 - 每個 Panel 分別輸出 OK／NG 檔，每份都有正式與備份。輸出資料夾及檔名的時間來自該 Panel 的 `fdate`，修復全 OK 檔案沒有圖片時間與沿用上一份檔案狀態的問題。
 - 檔名格式為 `時間_產品_廠區_工廠_產線_設備_Carrier_工作識別碼_p001_OK.csv`（或 NG）。識別欄位會處理 Windows 非法字元並限制長度；不同來源資料夾中的同名 XML 也有不同工作識別碼。
 - 圖片路徑接受 `/`、`\\`、磁碟機及 UNC 格式；從圖片檔名的 14 位時間與 `@` 後名稱建立 `日期/時間/時間_Carrier_TB@圖片名`。不再假設日期位於來源目錄的固定層級。
-- AI 結果接受 NG→0、OK→1 與既有 0／1；未知值會重試後隔離。未知 Board 狀態同樣不再默認為 OK。XML 支援有／無預設命名空間。
+- 預設 `runtime.strict_xml_attributes: false`，一般資料屬性（包含 Component 的 PackageType、Type、PartNo、CompName、MachineDefect、Group_type、is_covered、AI_result、TB，Panel／Board 的識別資料，以及圖片座標／角度）缺少、空字串或純空白時，CSV 對應欄位留空。資料值不會自動補成 0 或字串 None。
+- AI 結果仍轉換 NG→0、OK→1 並保留既有 0／1；寬鬆模式保留未知值原文。設 `runtime.strict_xml_attributes: true` 則上述屬性必須非空，未知 AI 結果會重試後隔離。
+- 兩種模式都要求有效的 XML 結構、Panel／Board 節點、可解析的 Panel.fdate 與已知 Board.Status；FAIL 板必須有元件及圖片，每個 Image 至少有一個可解析的 PicPath1／PicPath2。缺少分類或路徑所需資料仍會重試後隔離，避免誤判為 OK 或悄悄漏掉 NG。XML 支援有／無預設命名空間。
 - FAIL 板仍輸出其所有元件影像，不另依 Component.Status 篩選；`OP_Defect_Code` 仍為 `No Check`，不自行改用 ConfirmDefect。相同 PicPath1／PicPath2 仍保留兩列。這些規則延續原程式，需由業務規格決定是否修改。
 - 移除未使用的 CoverType 映射、INI 載入、無效函式及不用的 XML 欄位讀取。正式上線前請以真實 XML 確認狀態值、必填欄位及下游對新檔名的接受程度。
+
+修改 JSON 後需重新啟動程式。驗證模式會納入工作識別，切換模式後可重新處理先前失敗的相同內容；若 XML 已移至 error，請在停止程式後將受影響的 XML 放回 input 的原相對路徑再啟動。保留 `.runtime` 工作紀錄即可，不需清除狀態目錄。
 
 ## 程式結構
 

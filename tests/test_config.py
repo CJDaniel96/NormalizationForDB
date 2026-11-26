@@ -29,6 +29,8 @@ def test_paths_are_relative_to_config_not_working_directory(config_file, monkeyp
         lambda raw: raw["paths"].update(output="data"),
         lambda raw: raw["paths"].update(error=raw["paths"]["xml_archive"] + "/error"),
         lambda raw: raw["runtime"].update(batch_size=True),
+        lambda raw: raw["runtime"].update(strict_xml_attributes="false"),
+        lambda raw: raw["runtime"].update(strict_xml_attributes=0),
         lambda raw: raw["runtime"].update(max_parse_attempts=0),
         lambda raw: raw["runtime"].update(settle_seconds=-1),
         lambda raw: raw["runtime"].update(poll_interval_seconds=0),
@@ -59,3 +61,13 @@ def test_utf8_bom(config_file):
 def test_managed_subdirectories_of_input_are_allowed(config_file):
     change(config_file, lambda raw: raw["paths"].update(xml_archive="data/input/archive"))
     assert load_config(config_file).paths.xml_archive.name == "archive"
+
+
+def test_xml_attributes_are_relaxed_by_default(config_file):
+    assert load_config(config_file).runtime.strict_xml_attributes is False
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_xml_attribute_validation_mode_can_be_configured(config_file, strict):
+    change(config_file, lambda raw: raw["runtime"].update(strict_xml_attributes=strict))
+    assert load_config(config_file).runtime.strict_xml_attributes is strict

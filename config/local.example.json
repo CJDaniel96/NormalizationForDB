@@ -14,6 +14,7 @@
     "logs": "../logs/local"
   },
   "runtime": {
+    "strict_xml_attributes": false,
     "poll_interval_seconds": 10,
     "settle_seconds": 10,
     "retry_interval_seconds": 30,

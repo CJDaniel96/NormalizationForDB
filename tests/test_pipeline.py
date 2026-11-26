@@ -1,5 +1,7 @@
+import csv
 import json
 from dataclasses import replace
+from xml.etree import ElementTree as ET
 
 import pytest
 
@@ -284,3 +286,28 @@ def test_input_permission_error_is_retried(config, clock, monkeypatch):
 
     monkeypatch.setattr(type(config.paths.input), "is_dir", is_dir)
     assert make_pipeline(config, clock).poll().scan_errors == 1
+
+
+def test_relaxing_attributes_retries_previous_failure_and_archives_xml(
+    config, clock, put_xml, xml_factory
+):
+    root = ET.fromstring(xml_factory(status="FAIL"))
+    root.find("Panel/Board/Component").set("PackageType", "")
+    content = ET.tostring(root)
+    source = put_xml("machine/batch/empty_package.xml", content)
+    strict_config = replace(config, runtime=replace(config.runtime, strict_xml_attributes=True))
+    assert make_pipeline(strict_config, clock).poll().failed == 1
+    assert source.exists()
+    assert not config.paths.output.exists()
+
+    # A validation-mode change is a different output contract, so the old parse
+    # failure and retry deadline do not block the same XML under relaxed rules.
+    assert make_pipeline(config, clock).poll().completed == 1
+    assert not source.exists()
+    assert (config.paths.xml_archive / "machine/batch/empty_package.xml").read_bytes() == content
+    outputs = list(config.paths.output.rglob("*_NG.csv"))
+    assert len(outputs) == 1
+    with outputs[0].open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 2
+    assert all(row["PackageType"] == "" for row in rows)

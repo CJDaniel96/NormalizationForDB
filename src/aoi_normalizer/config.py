@@ -24,6 +24,7 @@ class Paths:
 
 @dataclass(frozen=True)
 class Runtime:
+    strict_xml_attributes: bool = False
     poll_interval_seconds: float = 10
     settle_seconds: float = 10
     retry_interval_seconds: float = 30
@@ -71,6 +72,8 @@ def _unique_keys(pairs: list[tuple[str, object]]) -> dict:
 def _runtime(raw: object) -> Runtime:
     raw = _object(raw, "runtime", {f.name for f in fields(Runtime)}, set())
     values = {f.name: getattr(Runtime(), f.name) for f in fields(Runtime)} | raw
+    if type(values["strict_xml_attributes"]) is not bool:
+        raise ConfigError("runtime.strict_xml_attributes must be a boolean")
     for name in ("max_parse_attempts", "batch_size"):
         if type(values[name]) is not int or values[name] < 1:
             raise ConfigError(f"runtime.{name} must be a positive integer")

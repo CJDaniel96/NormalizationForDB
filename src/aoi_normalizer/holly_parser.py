@@ -18,6 +18,13 @@ def _required(element: ET.Element, name: str) -> str:
     return value
 
 
+def _attribute(element: ET.Element, name: str, *, strict: bool) -> str:
+    if strict:
+        return _required(element, name)
+    value = element.get(name, "")
+    return value if value.strip() else ""
+
+
 def _image_path(raw: str, carrier: str, side: str) -> tuple[str, str]:
     # PureWindowsPath handles both slash styles, including UNC paths, on every OS.
     filename = PureWindowsPath(raw).name
@@ -35,33 +42,33 @@ def _image_path(raw: str, carrier: str, side: str) -> tuple[str, str]:
     return relative, image_name
 
 
-def _ng_records(board: ET.Element, common: Record) -> list[Record]:
+def _ng_records(board: ET.Element, common: Record, *, strict: bool) -> list[Record]:
     components = board.findall("Component")
     if not components:
         raise DataError("FAIL board has no Component elements")
     result = []
     for component in components:
-        ai_result = _required(component, "AI_result")
-        if ai_result not in AI_RESULTS:
+        ai_result = _attribute(component, "AI_result", strict=strict)
+        if strict and ai_result not in AI_RESULTS:
             raise DataError(f"Unknown AI_result: {ai_result!r}")
         component_record = common | {
-            "Part_Number": _required(component, "PartNo"),
-            "CompName": _required(component, "CompName"),
+            "Part_Number": _attribute(component, "PartNo", strict=strict),
+            "CompName": _attribute(component, "CompName", strict=strict),
             "Window_ID": -1,
-            "AOI_Defect_Code": _required(component, "MachineDefect"),
+            "AOI_Defect_Code": _attribute(component, "MachineDefect", strict=strict),
             "OP_Defect_Code": "No Check",
-            "AI_Result": AI_RESULTS[ai_result],
-            "PackageType": _required(component, "PackageType"),
-            "Comp_type": _required(component, "Type"),
-            "Group_type": _required(component, "Group_type"),
-            "is_Cover": _required(component, "is_covered"),
+            "AI_Result": AI_RESULTS.get(ai_result, ai_result),
+            "PackageType": _attribute(component, "PackageType", strict=strict),
+            "Comp_type": _attribute(component, "Type", strict=strict),
+            "Group_type": _attribute(component, "Group_type", strict=strict),
+            "is_Cover": _attribute(component, "is_covered", strict=strict),
         }
         images = component.findall("CompImage/Image")
         if not images:
             raise DataError(f"Component {component_record['CompName']} has no images")
         for image in images:
             coordinates = {
-                column: _required(image, attribute)
+                column: _attribute(image, attribute, strict=strict)
                 for column, attribute in (
                     ("Defect_Center_X", "X1"),
                     ("Defect_Center_Y", "Y1"),
@@ -76,7 +83,7 @@ def _ng_records(board: ET.Element, common: Record) -> list[Record]:
                 raise DataError("Image has neither PicPath1 nor PicPath2")
             for path in paths:
                 relative, name = _image_path(
-                    path, str(common["Carrier_SN"]), _required(component, "TB")
+                    path, str(common["Carrier_SN"]), _attribute(component, "TB", strict=strict)
                 )
                 result.append(
                     component_record
@@ -90,6 +97,7 @@ def _ng_records(board: ET.Element, common: Record) -> list[Record]:
 
 
 def parse_holly_xml(content: bytes, config: Config) -> list[PanelResult]:
+    strict = config.runtime.strict_xml_attributes
     try:
         root = ET.fromstring(content)
     except (ET.ParseError, LookupError) as error:
@@ -102,9 +110,9 @@ def parse_holly_xml(content: bytes, config: Config) -> list[PanelResult]:
         raise DataError("XML contains no Panel elements")
     results = []
     for index, panel in enumerate(panels, start=1):
-        product = _required(panel, "cModel")
-        carrier = _required(panel, "Carrier")
-        machine = _required(panel, "Machine")
+        product = _attribute(panel, "cModel", strict=strict)
+        carrier = _attribute(panel, "Carrier", strict=strict)
+        machine = _attribute(panel, "Machine", strict=strict)
         try:
             timestamp = datetime.strptime(_required(panel, "fdate"), TIME_FORMAT)
         except ValueError as error:
@@ -121,22 +129,22 @@ def parse_holly_xml(content: bytes, config: Config) -> list[PanelResult]:
                 "Factory": config.factory,
                 "Machine": machine,
                 "Time": timestamp.strftime(TIME_FORMAT),
-                "BT": _required(board, "TopBtm"),
-                "Imulti_col": _required(board, "imulti"),
+                "BT": _attribute(board, "TopBtm", strict=strict),
+                "Imulti_col": _attribute(board, "imulti", strict=strict),
                 "Imulti_row": -1,
                 "Carrier_SN": carrier,
-                "BoardSN": _required(board, "BoardSN"),
+                "BoardSN": _attribute(board, "BoardSN", strict=strict),
             }
             status = _required(board, "Status").upper()
             if status in config.runtime.ok_board_statuses:
                 ok_records.append(common)
             elif status == "FAIL":
                 common |= {
-                    "StationId": _required(panel, "StationId"),
-                    "CycleTime": _required(panel, "CycleTime"),
-                    "TotalComp": _required(board, "TotalComp"),
+                    "StationId": _attribute(panel, "StationId", strict=strict),
+                    "CycleTime": _attribute(panel, "CycleTime", strict=strict),
+                    "TotalComp": _attribute(board, "TotalComp", strict=strict),
                 }
-                ng_records.extend(_ng_records(board, common))
+                ng_records.extend(_ng_records(board, common, strict=strict))
             else:
                 raise DataError(f"Unknown Board Status: {status!r}")
         results.append(

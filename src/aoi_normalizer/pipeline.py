@@ -56,6 +56,7 @@ class Pipeline:
             "factory": config.factory,
             "line_id": config.line_id,
             "ok_board_statuses": config.runtime.ok_board_statuses,
+            "strict_xml_attributes": config.runtime.strict_xml_attributes,
             "destinations": [
                 str(getattr(config.paths, name))
                 for name in ("output", "csv_backup", "xml_archive", "error")
