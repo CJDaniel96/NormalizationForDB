@@ -242,6 +242,9 @@ def test_time_and_classification_remain_required_in_relaxed_mode(
         "20261126033959~T~_J1GF15_6_top.jpg",
         r"Z:\exports\arbitrary\depth\20261126033959~T~_J1GF15_6_top.jpg",
         "//server/share/arbitrary/depth/20261126033959~T~_J1GF15_6_top.jpg",
+        "20261126033959~T~J1GF15_6_top.jpg",
+        r"Z:\exports\arbitrary\depth\20261126033959~T~J1GF15_6_top.jpg",
+        "//server/share/arbitrary/depth/20261126033959~T~J1GF15_6_top.jpg",
     ],
 )
 def test_tilde_image_filename_is_normalized_in_both_validation_modes(
@@ -287,7 +290,8 @@ def test_legacy_and_tilde_images_can_coexist_in_one_xml(config, xml_factory):
         "20260230033959~T~_J1GF15_6_top.jpg",
         "20261126033959~T~_",
         "20261126033959~~_J1GF15_6_top.jpg",
-        "20261126033959~T~J1GF15_6_top.jpg",
+        "20261126033959~T~",
+        "20261126033959~T_J1GF15_6_top.jpg",
         "20261126033959_T_J1GF15_6_top.jpg",
         "20261126033959_SN_T@",
     ],

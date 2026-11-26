@@ -315,13 +315,20 @@ def test_relaxing_attributes_retries_previous_failure_and_archives_xml(
 
 
 @pytest.mark.parametrize("previous_phase", ["quarantining", "quarantined"])
+@pytest.mark.parametrize(
+    "filename, expected_name",
+    [
+        ("20261126033959~T~_J1GF15_6_top.jpg", "J1GF15_6_top.jpg"),
+        ("20261126015132~T~J101_J8_10_top.jpg", "J101_J8_10_top.jpg"),
+    ],
+)
 def test_parser_fix_reprocesses_previously_rejected_xml(
-    config, clock, put_xml, xml_factory, monkeypatch, previous_phase
+    config, clock, put_xml, xml_factory, monkeypatch, previous_phase, filename, expected_name
 ):
     config = replace(config, runtime=replace(config.runtime, max_parse_attempts=1))
     root = ET.fromstring(xml_factory(status="FAIL"))
     image = root.find("Panel/Board/Component/CompImage/Image")
-    image.set("PicPath1", "20261126033959~T~_J1GF15_6_top.jpg")
+    image.set("PicPath1", filename)
     image.set("PicPath2", "")
     content = ET.tostring(root)
     relative = "machine/batch/tilde.xml"
@@ -329,7 +336,7 @@ def test_parser_fix_reprocesses_previously_rejected_xml(
     current_parser = pipeline_module.parse_holly_xml
 
     def old_parser(content, config):
-        raise DataError("Invalid image filename: 20261126033959~T~_J1GF15_6_top.jpg")
+        raise DataError(f"Invalid image filename: {filename}")
 
     with monkeypatch.context() as patch:
         patch.setattr(pipeline_module, "parse_holly_xml", old_parser)
@@ -354,7 +361,11 @@ def test_parser_fix_reprocesses_previously_rejected_xml(
     with next(config.paths.output.rglob("*_NG.csv")).open(encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
     assert len(rows) == 1
-    assert rows[0]["Image_name"] == "J1GF15_6_top.jpg"
+    assert rows[0]["Image_name"] == expected_name
+    timestamp = filename[:14]
+    assert rows[0]["Image_Path"] == (
+        f"2026-11-26/{timestamp}/{timestamp}_CARRIER_1_T@{expected_name}"
+    )
     assert journals(config)[0]["phase"] == "completed"
 
 

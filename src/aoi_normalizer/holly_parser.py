@@ -11,7 +11,7 @@ from .models import DataError, PanelResult, Record
 TIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 AI_RESULTS = {"NG": "0", "OK": "1", "0": "0", "1": "1"}
 IMAGE_FILENAME_PATTERN = re.compile(
-    r"(?P<timestamp>[0-9]{14})(?:_[^@]*@|~[^~]+~_)(?P<image_name>.+)"
+    r"(?P<timestamp>[0-9]{14})(?P<prefix>_[^@]*@|~[^~]+~)(?P<image_name>.+)"
 )
 
 
@@ -36,10 +36,16 @@ def _image_path(raw: str, carrier: str, side: str) -> tuple[str, str]:
     if match is None:
         raise DataError(
             f"Unsupported image filename format: {filename}; "
-            "expected timestamp_...@image_name or timestamp~side~_image_name"
+            "expected timestamp_...@image_name, timestamp~side~image_name "
+            "or timestamp~side~_image_name"
         )
     timestamp = match["timestamp"]
     image_name = match["image_name"]
+    if match["prefix"].startswith("~"):
+        # Some exports put one separator underscore after the second tilde.
+        image_name = image_name.removeprefix("_")
+    if not image_name:
+        raise DataError(f"Invalid image filename: {filename}; image name is empty")
     try:
         captured = datetime.strptime(timestamp, "%Y%m%d%H%M%S")
     except ValueError as error:
